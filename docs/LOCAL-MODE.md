@@ -98,7 +98,7 @@ home network that is usually fine. Do not point it across the internet without H
 | Your transcript (the last 6,000 characters, every half second while it changes) | Only to the model server address you entered. |
 | Your talking points | Same place, inside each question. |
 | Your microphone audio | **By default, the browser's built-in speech recognition sends it to the browser vendor's service** (the original README notes that Chrome sends it to Google). Choose **My own speech server** under Speech to text and it goes only to the address you enter: see [SPEECH-TO-TEXT.md](SPEECH-TO-TEXT.md). "Start without microphone" (type or paste) sends no audio anywhere. |
-| Your settings | Saved in your browser's local storage, on your computer. |
+| Your settings | Server addresses and model names are saved in your browser's local storage and in the `.env` file in the project folder, both on your computer. API keys are never written by the page. |
 
 ## Which browser
 

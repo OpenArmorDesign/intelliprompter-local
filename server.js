@@ -17,25 +17,26 @@
 // uses it only if you pick "My own speech server". STT_URL, STT_MODEL and STT_API_KEY in .env are the defaults.
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { extname, join, normalize } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { PROVIDERS, systemOneUrl } from './prompter.js';
 import { sttEndpoint } from './stt.js';
 
 const root = fileURLToPath(new URL('.', import.meta.url));
+const envFile = process.env.ENV_FILE || join(root, '.env');
 try {
-  for (const line of readFileSync(join(root, '.env'), 'utf8').split('\n')) {
+  for (const line of readFileSync(envFile, 'utf8').split('\n')) {
     const m = line.match(/^\s*([A-Z_]+)\s*=\s*(.*?)\s*$/);
     if (m && m[2] && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^(['"])(.*)\1$/, '$2');
   }
 } catch {}
 const serverKey = process.env.TYPESAFE_API_KEY || '';
-const localUrl = process.env.LOCAL_URL || '';
-const localModel = process.env.LOCAL_MODEL || '';
+let localUrl = process.env.LOCAL_URL || '';
+let localModel = process.env.LOCAL_MODEL || '';
 const localKey = process.env.LOCAL_API_KEY || '';
-const sttUrl = process.env.STT_URL || '';
-const sttModel = process.env.STT_MODEL || '';
+let sttUrl = process.env.STT_URL || '';
+let sttModel = process.env.STT_MODEL || '';
 const sttKey = process.env.STT_API_KEY || '';
 const port = Number(process.env.PORT) || 8787;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
@@ -51,6 +52,33 @@ function ownPage(req, contentType) {
     new RegExp(`^${contentType.replace('/', '\\/')}\\b`, 'i').test(req.headers['content-type'] ?? '');
 }
 
+// Remembers the server addresses and model names the user types on the page, in .env, so a lazy or non-technical
+// user never has to edit a file and the settings survive cleared browser data and restarts. Only these four plain
+// settings can be written. API keys are never written by the page. Other lines in the file are kept as they are.
+const SAVEABLE = ['LOCAL_URL', 'LOCAL_MODEL', 'STT_URL', 'STT_MODEL'];
+function saveSettings(values) {
+  const clean = {};
+  for (const k of SAVEABLE) {
+    if (!(k in values)) continue;
+    const v = values[k];
+    if (typeof v !== 'string' || v.length > 300 || /[\u0000-\u001f\u007f]/.test(v)) throw new Error(`Invalid value for ${k}`);
+    clean[k] = v.trim();
+  }
+  let lines = [];
+  try { lines = readFileSync(envFile, 'utf8').split('\n'); } catch {}
+  if (lines.length && lines.at(-1) === '') lines.pop();
+  for (const [k, v] of Object.entries(clean)) {
+    const at = lines.findIndex((l) => new RegExp(`^\\s*${k}\\s*=`).test(l));
+    if (at >= 0) lines[at] = `${k}=${v}`; else lines.push(`${k}=${v}`);
+  }
+  writeFileSync(envFile, lines.join('\n') + '\n', { mode: 0o600 });
+  if ('LOCAL_URL' in clean) localUrl = clean.LOCAL_URL;
+  if ('LOCAL_MODEL' in clean) localModel = clean.LOCAL_MODEL;
+  if ('STT_URL' in clean) sttUrl = clean.STT_URL;
+  if ('STT_MODEL' in clean) sttModel = clean.STT_MODEL;
+  return Object.keys(clean);
+}
+
 async function readBody(req, limit = 1_000_000) {
   let size = 0; const chunks = [];
   for await (const c of req) { size += c.length; if (size > limit) throw new Error('too large'); chunks.push(c); }
@@ -63,6 +91,20 @@ createServer(async (req, res) => {
     if (path === '/api/config') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
       return res.end(JSON.stringify({ relay: true, serverKey: !!serverKey, local: { url: localUrl, model: localModel }, stt: { url: sttUrl, model: sttModel } }));
+    }
+    if (path === '/api/settings' && req.method === 'POST') {
+      if (!ownPage(req, 'application/json')) {
+        res.writeHead(403, { 'Content-Type': 'application/json' });
+        return res.end('{"error":"The relay only accepts requests from its own page."}');
+      }
+      try {
+        const saved = saveSettings(JSON.parse((await readBody(req, 10_000)).toString('utf8')));
+        res.writeHead(200, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ saved }));
+      } catch (e) {
+        res.writeHead(400, { 'Content-Type': 'application/json' });
+        return res.end(JSON.stringify({ error: `Could not save settings: ${e.message}` }));
+      }
     }
     if (path === '/api/stt' && req.method === 'POST') {
       if (!ownPage(req, 'audio/wav')) {

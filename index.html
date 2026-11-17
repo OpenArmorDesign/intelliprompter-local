@@ -361,9 +361,14 @@ Introduce the first performer</textarea>
     $('keyPanel').classList.add('hidden');
     $('setupPanel').classList.remove('hidden');
   }
+  // Also remember the addresses in the .env file next to the server, so they survive cleared browser data and
+  // restarts without anyone editing a file. Only addresses and model names are saved here, never keys.
+  const rememberOnDisk = (values) => fetch('api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(values) })
+    .then((r) => r.ok, () => false);
   $('useLocal').onclick = () => {
     const v = localInputs(); if (!v) return;
     try { localStorage.setItem(LOCAL_STORE, JSON.stringify(v)); localStorage.setItem(MODE_STORE, 'local'); } catch {}
+    if (config.relay) rememberOnDisk({ LOCAL_URL: v.url, LOCAL_MODEL: v.model });
     useLocal(v.url, v.model);
   };
   // Sends one tiny scoring request with a long timeout (the first call can include loading the model into memory).
@@ -402,9 +407,10 @@ Introduce the first performer</textarea>
     $('sttFields').classList.toggle('hidden', m !== 'server');
     updateMicNote(); saveStt();
   }
-  $('sttBrowser').onchange = () => setSttMode('browser');
-  $('sttServer').onchange = () => setSttMode('server');
-  $('sttUrl').onchange = $('sttModel').onchange = saveStt;
+  const rememberStt = () => { if (config.relay) rememberOnDisk(sttMode === 'server' ? { STT_URL: $('sttUrl').value.trim(), STT_MODEL: $('sttModel').value.trim() } : { STT_URL: '' }); };
+  $('sttBrowser').onchange = () => { setSttMode('browser'); rememberStt(); };
+  $('sttServer').onchange = () => { setSttMode('server'); rememberStt(); };
+  $('sttUrl').onchange = $('sttModel').onchange = () => { saveStt(); rememberStt(); };
   const micError = (e) => e?.name === 'NotAllowedError' ? 'Microphone access was blocked. Allow it in the address bar and press Resume mic.'
     : e?.name === 'NotFoundError' ? 'No microphone was found.'
     : !window.isSecureContext ? 'The microphone only works on localhost or HTTPS. Open http://127.0.0.1:8787/ instead.' : `Microphone error: ${e?.message ?? e}`;

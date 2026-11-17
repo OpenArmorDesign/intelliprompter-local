@@ -197,3 +197,50 @@ test('makeTranscriber end to end through the relay, with errors that say what ha
     await assert.rejects(() => wrong(tone(1)), /Speech server -> 404: model 'nope' not found/);
   } finally { relay.stop(); stt.server.close(); }
 });
+
+// ---- remembering settings in .env ----
+import { mkdtempSync, readFileSync, writeFileSync, statSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
+test('relay: /api/settings writes the four plain settings to .env and keeps everything else', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ip-env-')), file = join(dir, '.env');
+  writeFileSync(file, '# my notes\nTYPESAFE_API_KEY=keepme\nLOCAL_URL=old:1\n');
+  const relay = await startRelay({ ENV_FILE: file });
+  try {
+    const post = (body, headers = {}) => fetch(`${relay.base}/api/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: relay.base, ...headers }, body: JSON.stringify(body) });
+    const ok = await post({ LOCAL_URL: '10.0.0.2:11435', LOCAL_MODEL: 'd1:3b', STT_URL: '10.0.0.2:5092', STT_MODEL: 'parakeet-tdt-0.6b-v3' });
+    assert.equal(ok.status, 200);
+    const text = readFileSync(file, 'utf8');
+    assert.equal(text, '# my notes\nTYPESAFE_API_KEY=keepme\nLOCAL_URL=10.0.0.2:11435\nLOCAL_MODEL=d1:3b\nSTT_URL=10.0.0.2:5092\nSTT_MODEL=parakeet-tdt-0.6b-v3\n');
+    // the running relay reports the new defaults without a restart
+    const cfg = await (await fetch(`${relay.base}/api/config`)).json();
+    assert.deepEqual(cfg.local, { url: '10.0.0.2:11435', model: 'd1:3b' });
+    assert.deepEqual(cfg.stt, { url: '10.0.0.2:5092', model: 'parakeet-tdt-0.6b-v3' });
+    // keys are never written, unknown names are ignored, bad values are refused
+    await post({ TYPESAFE_API_KEY: 'stolen', LOCAL_API_KEY: 'x', PORT: '1' });
+    assert.equal(readFileSync(file, 'utf8'), text);
+    const bad = await post({ LOCAL_URL: 'a\nTYPESAFE_API_KEY=evil' });
+    assert.equal(bad.status, 400);
+    assert.equal(readFileSync(file, 'utf8'), text);
+    // clearing a value
+    await post({ STT_URL: '' });
+    assert.match(readFileSync(file, 'utf8'), /\nSTT_URL=\n/);
+    // other sites and wrong content types are refused
+    assert.equal((await post({ LOCAL_URL: 'x:1' }, { Origin: 'http://evil.example' })).status, 403);
+    const plain = await fetch(`${relay.base}/api/settings`, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: '{"LOCAL_URL":"x:1"}' });
+    assert.equal(plain.status, 403);
+    assert.doesNotMatch(readFileSync(file, 'utf8'), /x:1/);
+  } finally { relay.stop(); }
+});
+
+test('relay: a new .env created by the page is private to the user', async () => {
+  const dir = mkdtempSync(join(tmpdir(), 'ip-env-')), file = join(dir, '.env');
+  const relay = await startRelay({ ENV_FILE: file });
+  try {
+    const r = await fetch(`${relay.base}/api/settings`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ LOCAL_URL: 'a:1' }) });
+    assert.equal(r.status, 200);
+    assert.equal(readFileSync(file, 'utf8'), 'LOCAL_URL=a:1\n');
+    assert.equal(statSync(file).mode & 0o077, 0, 'no access for group or others');
+  } finally { relay.stop(); }
+});

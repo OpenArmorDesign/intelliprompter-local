@@ -101,6 +101,11 @@ network setup and privacy notes: [docs/LOCAL-MODE.md](docs/LOCAL-MODE.md).
 
 Things to know:
 
+- **Your settings are remembered on disk.** When you press **Use this server**, or enter a speech server, the page
+  also writes the addresses and model names to the `.env` file next to the server (created with owner-only
+  permissions). So they survive restarts, cleared cookies and private windows with no file editing. API keys are
+  never written by the page. Delete the lines in `.env` to forget them.
+
 - **Speech-to-text is your choice.** By default the page uses the browser's built-in speech recognition, as the
   original does (it sends audio to the browser vendor, and Firefox does not offer it). Under **Speech to text** on
   the setup screen you can instead enter the address and port of your own speech server, such as Parakeet or a
