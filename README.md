@@ -33,7 +33,7 @@ she described it.
 
 ## How it works
 
-Every talking point is a separate Jev **Score** question, and all the open
+Every talking point is a separate **Score** question for a decision model (Jev, or a local model through the same System One API), and all the open
 points are scored in parallel, in one request, against everything you have
 said so far:
 
@@ -49,7 +49,7 @@ questions: {
 }
 ```
 
-Jev returns a `score` from 0 to 3 for each point: the probability-weighted
+The model returns a `score` from 0 to 3 for each point: the probability-weighted
 level, so it can fall between levels. The code owns the rules:
 
 - A point is **checked off when its score reaches the threshold** (1.5 by
@@ -60,13 +60,13 @@ level, so it can fall between levels. The code owns the rules:
 - **Checked points stay checked** and are no longer sent. You can also click a
   point to check or uncheck it yourself.
 - **Confidence is shown but ignored**, as in Allie's version. It measures how
-  concentrated Jev's probabilities are, not whether a point was covered.
+  concentrated the model's probabilities are, not whether a point was covered.
 - The page sends an update **every 500 ms**, but only when the transcript has
   changed and no request is already waiting. Only the last 6,000 characters
   are sent.
 
-The page's "How Jev scores each point" section explains Score step by step and
-shows Jev's latest answer for every point: the probability of each level and
+The page's "How the decision model scores each point" section explains Score step by step and
+shows the model's latest answer for every point: the probability of each level and
 the sum that gives the score.
 
 The shared logic is in [`prompter.js`](prompter.js). Allie used ElevenLabs for

@@ -110,9 +110,9 @@
   <h1>IntelliPrompter</h1>
   <p class="sub">
     A teleprompter of talking points, not a script. Speak in your own words and in any order. About every half
-    second, <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev</a> scores each open point
-    on how far you have covered it (0 to 3), and a point is checked off once its score reaches the threshold.
-    In local mode a decision model on your own server does the scoring instead of Jev.
+    second, a decision model scores each open point on how far you have covered it (0 to 3), and a point is checked
+    off once its score reaches the threshold. The scoring runs on a model you host yourself (local mode), or on
+    <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev</a> from TypeSafe through your own API key.
   </p>
 
   <section class="panel" id="keyPanel">
@@ -234,22 +234,22 @@ Introduce the first performer</textarea>
         <span style="flex:1"></span>
         <span class="stats" id="stats"></span>
       </div>
-      <p class="note">Click a point to check or uncheck it yourself. A checked point stays checked and is no longer sent to Jev.</p>
+      <p class="note">Click a point to check or uncheck it yourself. A checked point stays checked and is no longer sent to the model.</p>
       <p class="error hidden" id="error"></p>
     </div>
   </section>
 
   <details class="panel explain" id="explain">
-    <summary>How Jev scores each point</summary>
+    <summary>How the decision model scores each point</summary>
 
     <p>
-      Jev is a model from <a href="https://typesafe.ai">TypeSafe</a> that doesn't write text. It answers typed
-      questions with probabilities. This page uses its <b>Score</b> question type, which rates something on levels
+      A decision model doesn't write text. It answers typed questions with probabilities. The format used here is the
+      System One API, introduced with <a href="https://typesafe.ai">TypeSafe</a>'s Jev and now offered by local servers such as Ollama. This page uses its <b>Score</b> question type, which rates something on levels
       you describe in plain words.
     </p>
 
     <h3>1. What is sent</h3>
-    <p>About every half second, one request goes to Jev. It holds what you have said so far (the <i>state</i>) and one
+    <p>About every half second, one request goes to the model. It holds what you have said so far (the <i>state</i>) and one
       Score question per talking point that is still open. All the questions are answered in parallel:</p>
 <pre>{
   "state": { "transcript": "Hi all, I'm your host tonight. Quick safety note: the emergency exits are at the back…" },
@@ -268,11 +268,11 @@ Introduce the first performer</textarea>
   }
 }</pre>
     <p>The <i>criteria</i> are the levels, from lowest to highest. They define in words what "covered" means,
-      so changing their wording changes what Jev looks for.</p>
+      so changing their wording changes what the model looks for.</p>
 
     <h3>2. What comes back</h3>
-    <p>Jev doesn't pick one level. For each point it gives the probability of each level, adding up to 100%.
-      Here are Jev's real answers for the point "Where the emergency exits are" as the host says more and more.
+    <p>The model doesn't pick one level. For each point it gives the probability of each level, adding up to 100%.
+      Here are real answers (from Jev 1.13) for the point "Where the emergency exits are" as the host says more and more.
       The levels are 0&nbsp;no mention, 1&nbsp;mentioned but not expanded upon, 2&nbsp;discussed, 3&nbsp;thoroughly discussed.</p>
     <table class="levels">
       <tr><th>What the host has said</th><th class="n">0</th><th class="n">1</th><th class="n">2</th><th class="n">3</th><th class="n">Score</th></tr>
@@ -297,10 +297,10 @@ Introduce the first performer</textarea>
       <li>A checked point stays checked and is no longer sent, so later requests get cheaper.</li>
       <li>Every open point is scored on every request, so you can cover them in any order.</li>
     </ul>
-    <p>Jev only judges how much each point has been covered. The rule for checking it off is plain code, which is
+    <p>The model only judges how much each point has been covered. The rule for checking it off is plain code, which is
       why tuning it needs no retraining: change the threshold or the wording of the levels.</p>
 
-    <h3>Live: Jev's last answer for each point</h3>
+    <h3>Live: the model's last answer for each point</h3>
     <p class="note" id="distEmpty">Start talking (or typing) and each point's probabilities will show here.</p>
     <div class="dist" id="dist"></div>
 
@@ -310,7 +310,7 @@ Introduce the first performer</textarea>
     <p class="note">Local mode was added in
       <a href="https://github.com/OpenArmorDesign/intelliprompter-local">intelliprompter-local</a>, a fork of the
       original <a href="https://github.com/finetuningsingh/intelliprompter">IntelliPrompter</a> by finetuningsingh.
-      The design is Allie's at TypeSafe; with a local decision model, "Jev" above means whichever model you chose.</p>
+      The design is Allie's at TypeSafe. The threshold and level wording were tuned on Jev 1.13, so a different model may need a different threshold (see the tuning guide).</p>
   </details>
 </main>
 
