@@ -37,6 +37,9 @@ let localModel = process.env.LOCAL_MODEL || '';
 const localKey = process.env.LOCAL_API_KEY || '';
 let sttUrl = process.env.STT_URL || '';
 let sttModel = process.env.STT_MODEL || '';
+// The "check off at" slider's starting value (0.5 to 2.5). The page saves it here when you move the slider.
+const validThreshold = (v) => { const n = Number(v); return v !== '' && v != null && Number.isFinite(n) && n >= 0.5 && n <= 2.5 ? n : null; };
+let threshold = validThreshold(process.env.THRESHOLD);
 const sttKey = process.env.STT_API_KEY || '';
 const port = Number(process.env.PORT) || 8787;
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.txt': 'text/plain; charset=utf-8' };
@@ -55,7 +58,7 @@ function ownPage(req, contentType) {
 // Remembers the server addresses and model names the user types on the page, in .env, so a lazy or non-technical
 // user never has to edit a file and the settings survive cleared browser data and restarts. Only these four plain
 // settings can be written. API keys are never written by the page. Other lines in the file are kept as they are.
-const SAVEABLE = ['LOCAL_URL', 'LOCAL_MODEL', 'STT_URL', 'STT_MODEL'];
+const SAVEABLE = ['LOCAL_URL', 'LOCAL_MODEL', 'STT_URL', 'STT_MODEL', 'THRESHOLD'];
 function saveSettings(values) {
   const clean = {};
   for (const k of SAVEABLE) {
@@ -63,6 +66,7 @@ function saveSettings(values) {
     const v = values[k];
     if (typeof v !== 'string' || v.length > 300 || /[\u0000-\u001f\u007f]/.test(v)) throw new Error(`Invalid value for ${k}`);
     clean[k] = v.trim();
+    if (k === 'THRESHOLD' && clean[k] !== '' && validThreshold(clean[k]) === null) throw new Error('THRESHOLD must be a number from 0.5 to 2.5');
   }
   let lines = [];
   try { lines = readFileSync(envFile, 'utf8').split('\n'); } catch {}
@@ -76,6 +80,7 @@ function saveSettings(values) {
   if ('LOCAL_MODEL' in clean) localModel = clean.LOCAL_MODEL;
   if ('STT_URL' in clean) sttUrl = clean.STT_URL;
   if ('STT_MODEL' in clean) sttModel = clean.STT_MODEL;
+  if ('THRESHOLD' in clean) threshold = validThreshold(clean.THRESHOLD);
   return Object.keys(clean);
 }
 
@@ -90,7 +95,7 @@ createServer(async (req, res) => {
   try {
     if (path === '/api/config') {
       res.writeHead(200, { 'Content-Type': 'application/json' });
-      return res.end(JSON.stringify({ relay: true, serverKey: !!serverKey, local: { url: localUrl, model: localModel }, stt: { url: sttUrl, model: sttModel } }));
+      return res.end(JSON.stringify({ relay: true, serverKey: !!serverKey, local: { url: localUrl, model: localModel }, stt: { url: sttUrl, model: sttModel }, threshold }));
     }
     if (path === '/api/settings' && req.method === 'POST') {
       if (!ownPage(req, 'application/json')) {

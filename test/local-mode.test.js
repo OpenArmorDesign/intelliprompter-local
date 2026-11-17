@@ -81,7 +81,7 @@ test('relay: /api/config reports the .env defaults', async () => {
   const relay = await startRelay({ LOCAL_URL: '10.0.0.9:11434', LOCAL_MODEL: 'nimble' });
   try {
     const cfg = await (await fetch(`${relay.base}/api/config`)).json();
-    assert.deepEqual(cfg, { relay: true, serverKey: false, local: { url: '10.0.0.9:11434', model: 'nimble' }, stt: { url: '', model: '' } });
+    assert.deepEqual(cfg, { relay: true, serverKey: false, local: { url: '10.0.0.9:11434', model: 'nimble' }, stt: { url: '', model: '' }, threshold: null });
   } finally { relay.stop(); }
 });
 

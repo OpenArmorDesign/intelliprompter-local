@@ -223,6 +223,13 @@ test('relay: /api/settings writes the four plain settings to .env and keeps ever
     const bad = await post({ LOCAL_URL: 'a\nTYPESAFE_API_KEY=evil' });
     assert.equal(bad.status, 400);
     assert.equal(readFileSync(file, 'utf8'), text);
+    // the check-off threshold: a number from 0.5 to 2.5
+    assert.equal((await post({ THRESHOLD: '1.3' })).status, 200);
+    assert.equal((await (await fetch(`${relay.base}/api/config`)).json()).threshold, 1.3);
+    assert.match(readFileSync(file, 'utf8'), /\nTHRESHOLD=1\.3\n/);
+    assert.equal((await post({ THRESHOLD: '9' })).status, 400);
+    assert.equal((await post({ THRESHOLD: 'abc' })).status, 400);
+    assert.equal((await (await fetch(`${relay.base}/api/config`)).json()).threshold, 1.3);
     // clearing a value
     await post({ STT_URL: '' });
     assert.match(readFileSync(file, 'utf8'), /\nSTT_URL=\n/);

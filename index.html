@@ -573,6 +573,10 @@ Introduce the first performer</textarea>
     $('status').innerHTML = (listening ? '<span class="live"></span>Listening · ' : typing ? 'Typing mode · ' : 'Paused · ') + (left ? `${left} of ${points.length} points left` : 'All points covered');
     $('stats').textContent = `${calls} ${mode === 'local' ? 'local' : 'Jev'} calls · ${mode === 'local' ? 'no cost' : costKnown ? '$' + cost.toFixed(5) : 'billed by TypeSafe'} · last ${lastMs} ms`;
   }
+  // The starting value of the slider: the .env THRESHOLD if set, otherwise 1.5 (what the original was tuned for).
+  if (config.threshold != null) { $('threshold').value = config.threshold; $('thresholdOut').textContent = Number(config.threshold).toFixed(1); }
+  // Remember the slider when you let go of it, in .env, so the starting value survives restarts and cleared browsers.
+  $('threshold').onchange = () => { if (config.relay) rememberOnDisk({ THRESHOLD: String(Number($('threshold').value)) }); };
   $('threshold').oninput = () => {
     // Lowering the threshold can check off points already scored above it; raising it never unchecks.
     for (const p of points) { const s = state[p.id]; if (!s.done && s.seen && s.score >= threshold()) s.done = true; }

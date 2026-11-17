@@ -105,6 +105,9 @@ Things to know:
   also writes the addresses and model names to the `.env` file next to the server (created with owner-only
   permissions). So they survive restarts, cleared cookies and private windows with no file editing. API keys are
   never written by the page. Delete the lines in `.env` to forget them.
+- **The check-off threshold is remembered too.** Move the "Check off at" slider and the new value is saved as
+  `THRESHOLD` in `.env`, and becomes the starting value next time (default 1.5). You can also set it by hand there,
+  from 0.5 to 2.5.
 
 - **Speech-to-text is your choice.** By default the page uses the browser's built-in speech recognition, as the
   original does (it sends audio to the browser vendor, and Firefox does not offer it). Under **Speech to text** on
