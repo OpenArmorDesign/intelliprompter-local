@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>IntelliPrompter</title>
-<meta name="description" content="A teleprompter of talking points, not a script: speak freely and Jev checks each point off as you cover it, in any order.">
+<meta name="description" content="A teleprompter of talking points, not a script: speak freely and a decision model (Jev, or one you run yourself) checks each point off as you cover it, in any order.">
 <style>
   :root {
     --bg: #f6f5f1; --panel: #ffffff; --text: #1c1b18; --muted: #6b6960; --line: #e1dfd7;
@@ -29,7 +29,7 @@
   .sub a { color: inherit; }
   .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 16px; }
   label { display: block; font-size: 14px; color: var(--muted); margin-bottom: 6px; }
-  input[type="password"], textarea {
+  input[type="password"], input[type="text"], textarea {
     width: 100%; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px;
   }
   textarea { resize: vertical; }
@@ -43,6 +43,11 @@
   .hidden { display: none; }
   input[type="range"] { width: 160px; accent-color: var(--accent); }
 
+  .localbox { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .localbox h2 { font-size: 15px; margin: 0 0 6px; }
+  .localbox .two { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px; }
+  .localbox code { font-size: 13px; }
+  .ok { color: var(--done); }
   .keysafe { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
   .keysafe h2 { display: flex; align-items: center; gap: 6px; font-size: 15px; margin: 0 0 6px; }
   .keysafe h2 svg { fill: none; stroke: var(--done); stroke-width: 2.2; stroke-linecap: round; flex: none; }
@@ -104,6 +109,7 @@
     A teleprompter of talking points, not a script. Speak in your own words and in any order. About every half
     second, <a href="https://typesafe.ai/blog/introducing-system-one-models-and-jev">Jev</a> scores each open point
     on how far you have covered it (0 to 3), and a point is checked off once its score reaches the threshold.
+    In local mode a decision model on your own server does the scoring instead of Jev.
   </p>
 
   <section class="panel" id="keyPanel">
@@ -115,6 +121,28 @@
     </div>
     <p class="error hidden" id="keyError"></p>
 
+    <div class="localbox" id="localBox">
+      <h2>Or use a model you run yourself (no key, no account)</h2>
+      <p class="note" style="margin-top:0">Any server that offers the System One API (<code>/v1/systemone</code>) with a
+        decision model loaded works: Ollama 0.35 or later, llama.cpp's <code>llama-server</code>, LM Studio. This must
+        be a decision model, not a chat model. Setup: <a href="https://github.com/OpenArmorDesign/intelliprompter-local/blob/main/docs/LOCAL-MODE.md">docs/LOCAL-MODE.md</a>.</p>
+      <div class="two">
+        <div><label for="localUrl">Server address</label>
+          <input id="localUrl" type="text" autocomplete="off" spellcheck="false" placeholder="192.168.1.50:11434"></div>
+        <div><label for="localModel">Model</label>
+          <input id="localModel" type="text" autocomplete="off" spellcheck="false" placeholder="nimble"></div>
+      </div>
+      <div class="row">
+        <button class="primary" id="useLocal">Use this server</button>
+        <button id="testLocal">Test connection</button>
+        <span class="note" id="localStatus" style="margin:0"></span>
+      </div>
+      <p class="note" id="localHint">Requests go from this page to the small local server (<code>npm start</code>), which
+        forwards them to the address above, so the model server needs no CORS settings. Your transcript goes only to that
+        address. In Chrome, speech recognition still sends your microphone audio to Google until local speech-to-text is
+        added (see docs/ROADMAP.md).</p>
+    </div>
+
     <div class="keysafe">
       <h2><svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>Your key is stored only in your browser</h2>
       <ul>
@@ -124,7 +152,8 @@
           from your browser straight to openrouter.ai. A TypeSafe key goes to the small server you run on your own
           computer with <code>npm start</code>, which passes it on to api.typesafe.ai. That API does not accept calls
           from web pages, so TypeSafe keys don't work on this hosted page.</li>
-        <li><b>No server of ours in between.</b> This site is two static files on GitHub Pages, with no backend, no
+        <li><b>No server of ours in between.</b> This page is two static files, <code>index.html</code> and
+          <code>prompter.js</code>, plus the small server you run yourself. There is no backend of ours, no
           analytics and no third-party scripts. The key is sent nowhere else.</li>
       </ul>
       <p class="note">
@@ -253,14 +282,20 @@ Introduce the first performer</textarea>
     <p class="note">Idea and design by Allie at TypeSafe. More in the
       <a href="https://docs.typesafe.ai/primitives/score">Score docs</a> and on
       <a href="https://github.com/finetuningsingh/intelliprompter">GitHub</a>.</p>
+    <p class="note">Local mode was added in
+      <a href="https://github.com/OpenArmorDesign/intelliprompter-local">intelliprompter-local</a>, a fork of the
+      original <a href="https://github.com/finetuningsingh/intelliprompter">IntelliPrompter</a> by finetuningsingh.
+      The design is Allie's at TypeSafe; with a local decision model, "Jev" above means whichever model you chose.</p>
   </details>
 </main>
 
 <script type="module">
-  import { scorePoints, parsePoints, makeJev, providerFor, PROVIDERS } from './prompter.js?v=3';
+  import { scorePoints, parsePoints, makeJev, providerFor, systemOneUrl, PROVIDERS } from './prompter.js?v=4';
 
   const TICK_MS = 500;
   const STORE = 'jev_api_key';
+  const LOCAL_STORE = 'intelliprompter_local';   // {url, model} of the last local server
+  const MODE_STORE = 'intelliprompter_mode';     // 'local' or 'key': what to start with next time
   const $ = (id) => document.getElementById(id);
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
@@ -268,10 +303,62 @@ Introduce the first performer</textarea>
   let finalText = '', interimText = '', sentText = '', inFlight = false, timer = null;
   let recognizer = null, listening = false, typing = false;
   let calls = 0, cost = 0, costKnown = true, lastMs = 0;
-  let usingServerKey = false, retryAt = 0, errorDelay = 0;
+  let usingServerKey = false, retryAt = 0, errorDelay = 0, mode = 'key';
 
   // server.js answers this; on GitHub Pages it 404s, so there is no relay and TypeSafe keys can't be used.
   const config = await fetch('api/config').then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
+
+  // Times each call, for the "last … ms" figure.
+  const timed = (call) => async (...args) => {
+    const t0 = performance.now();
+    try { return await call(...args); } finally { lastMs = Math.round(performance.now() - t0); }
+  };
+
+  // ---- local server (intelliprompter-local) ----
+  // The page talks to server.js (/api/local), which forwards to <address>/v1/systemone; the address travels in a header.
+  const localJev = (url, model, extra = {}) => makeJev({ provider: 'local', key: '', url: 'api/local', model, headers: { 'X-Local-Url': url }, ...extra });
+  function localInputs() {
+    const url = $('localUrl').value.trim(), model = $('localModel').value.trim();
+    if (!systemOneUrl(url)) { $('localStatus').textContent = 'Enter the server address, like 192.168.1.50:11434.'; $('localStatus').className = 'note'; return null; }
+    if (!model) { $('localStatus').textContent = 'Enter the model name.'; $('localStatus').className = 'note'; return null; }
+    return { url, model };
+  }
+  function useLocal(url, model) {
+    jev = timed(localJev(url, model));
+    mode = 'local';
+    usingServerKey = false;
+    $('keyNote').textContent = `Using the local model "${model}" at ${systemOneUrl(url).replace(/\/v1\/systemone$/, '')}.`;
+    $('forgetKey').textContent = 'Change server';
+    $('forgetKey').classList.remove('hidden');
+    $('keyPanel').classList.add('hidden');
+    $('setupPanel').classList.remove('hidden');
+  }
+  $('useLocal').onclick = () => {
+    const v = localInputs(); if (!v) return;
+    try { localStorage.setItem(LOCAL_STORE, JSON.stringify(v)); localStorage.setItem(MODE_STORE, 'local'); } catch {}
+    useLocal(v.url, v.model);
+  };
+  // Sends one tiny scoring request with a long timeout (the first call can include loading the model into memory).
+  $('testLocal').onclick = async () => {
+    const v = localInputs(); if (!v) return;
+    const out = $('localStatus');
+    out.className = 'note'; out.textContent = 'Testing… the first call can take a while if the model has to load.';
+    $('testLocal').disabled = true;
+    const t0 = performance.now();
+    try {
+      const r = await scorePoints(localJev(v.url, v.model, { timeoutMs: 120_000, retries: 0 }), 'Hello everyone, welcome to the show.', [{ id: 'p0', text: 'Welcome everyone' }]);
+      const a = r.scores.p0;
+      if (!a) throw new Error('The server answered, but not with a score. Is this a decision model?');
+      out.className = 'note ok';
+      out.textContent = `Connected. ${Math.round(performance.now() - t0)} ms; test score ${a.score.toFixed(2)} of 3 (a clear greeting should score high).`;
+    } catch (e) {
+      out.className = 'note'; out.textContent = e.message;
+    } finally { $('testLocal').disabled = false; }
+  };
+  if (!config.relay) {
+    for (const id of ['localUrl', 'localModel', 'useLocal', 'testLocal']) $(id).disabled = true;
+    $('localHint').textContent = 'Local mode needs the small local server: clone the repository and run npm start. A page hosted on the web cannot reach a server on your own network.';
+  }
 
   // ---- key ----
   function useKey(key, provider) {
@@ -280,12 +367,11 @@ Introduce the first performer</textarea>
       url: provider === 'typesafe' ? 'api/typesafe' : undefined,
       headers: provider === 'openrouter' ? { 'HTTP-Referer': location.origin, 'X-Title': 'IntelliPrompter' } : {},
     });
-    jev = async (...args) => {
-      const t0 = performance.now();
-      try { return await call(...args); } finally { lastMs = Math.round(performance.now() - t0); }
-    };
+    jev = timed(call);
+    mode = 'key';
     usingServerKey = !key;
     $('keyNote').textContent = key ? `Using your ${PROVIDERS[provider].name} key.` : 'Using the TypeSafe key from the local server\'s .env.';
+    $('forgetKey').textContent = 'Forget key';
     $('forgetKey').classList.toggle('hidden', !key);
     $('keyPanel').classList.add('hidden');
     $('setupPanel').classList.remove('hidden');
@@ -298,6 +384,7 @@ Introduce the first performer</textarea>
     }
     keyError('');
     try {
+      localStorage.setItem(MODE_STORE, 'key');
       sessionStorage.setItem(STORE, k);
       if (remember) localStorage.setItem(STORE, k); else localStorage.removeItem(STORE);
     } catch {}
@@ -307,15 +394,25 @@ Introduce the first performer</textarea>
   $('key').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('saveKey').click(); });
   $('forgetKey').onclick = () => {
     jev = null;
-    try { sessionStorage.removeItem(STORE); localStorage.removeItem(STORE); } catch {}
+    // "Change server" in local mode only goes back to the picker; a saved key is not touched.
+    if (mode === 'key') { try { sessionStorage.removeItem(STORE); localStorage.removeItem(STORE); } catch {} }
     $('key').value = '';
     $('setupPanel').classList.add('hidden');
     $('keyPanel').classList.remove('hidden');
   };
-  if (config.serverKey) useKey('', 'typesafe');
+  // Starting point: LOCAL_URL + LOCAL_MODEL in .env, then TYPESAFE_API_KEY in .env, then what you used last time.
+  let savedLocal = null;
+  try { savedLocal = JSON.parse(localStorage.getItem(LOCAL_STORE) || 'null'); } catch {}
+  $('localUrl').value = savedLocal?.url || config.local?.url || '';
+  $('localModel').value = savedLocal?.model || config.local?.model || '';
+  if (config.relay && config.local?.url && config.local?.model) useLocal(config.local.url, config.local.model);
+  else if (config.serverKey) useKey('', 'typesafe');
   else try {
-    const remembered = localStorage.getItem(STORE), session = sessionStorage.getItem(STORE);
-    if (remembered) trySavedKey(remembered, true); else if (session) trySavedKey(session, false);
+    if (config.relay && savedLocal?.url && savedLocal?.model && localStorage.getItem(MODE_STORE) === 'local') useLocal(savedLocal.url, savedLocal.model);
+    else {
+      const remembered = localStorage.getItem(STORE), session = sessionStorage.getItem(STORE);
+      if (remembered) trySavedKey(remembered, true); else if (session) trySavedKey(session, false);
+    }
   } catch {}
   try { const saved = localStorage.getItem('intelliprompter_points'); if (saved) $('pointsInput').value = saved; } catch {}
   if (!Recognition) $('micNote').textContent = 'This browser has no built-in speech recognition (Chrome, Edge and Safari do). Use "Start without microphone" and type or paste what you say.';
@@ -381,7 +478,7 @@ Introduce the first performer</textarea>
     $('thresholdOut').textContent = threshold().toFixed(1);
     const left = points.filter((p) => !state[p.id].done).length;
     $('status').innerHTML = (listening ? '<span class="live"></span>Listening · ' : typing ? 'Typing mode · ' : 'Paused · ') + (left ? `${left} of ${points.length} points left` : 'All points covered');
-    $('stats').textContent = `${calls} Jev calls · ${costKnown ? '$' + cost.toFixed(5) : 'billed by TypeSafe'} · last ${lastMs} ms`;
+    $('stats').textContent = `${calls} ${mode === 'local' ? 'local' : 'Jev'} calls · ${mode === 'local' ? 'no cost' : costKnown ? '$' + cost.toFixed(5) : 'billed by TypeSafe'} · last ${lastMs} ms`;
   }
   $('threshold').oninput = () => {
     // Lowering the threshold can check off points already scored above it; raising it never unchecks.
@@ -423,7 +520,8 @@ Introduce the first performer</textarea>
       if (/\(401\)/.test(e.message)) {
         // A rejected key stays rejected, so stop sending it.
         stop(); clearInterval(timer);
-        hint = usingServerKey ? 'Fix TYPESAFE_API_KEY in .env, restart the server and reload.' : 'Use Edit points, then Forget key, to enter another.';
+        hint = mode === 'local' ? 'Your model server wants an API key: set LOCAL_API_KEY in .env, restart the server and reload.'
+          : usingServerKey ? 'Fix TYPESAFE_API_KEY in .env, restart the server and reload.' : 'Use Edit points, then Forget key, to enter another.';
       } else {
         // prompter.js already retried; wait longer after each further failure (2 s, 4 s, … up to 30 s).
         errorDelay = Math.min(errorDelay ? errorDelay * 2 : 2000, 30_000);

@@ -1,11 +1,24 @@
-# IntelliPrompter
+# IntelliPrompter (local mode fork)
+
+> **This is a fork of [finetuningsingh/intelliprompter](https://github.com/finetuningsingh/intelliprompter)** that
+> adds a **local mode**: score your talking points with a decision model that **you run yourself** (Ollama,
+> llama.cpp's `llama-server`, LM Studio, or any server that offers `/v1/systemone`), with no API key, no account
+> and no per-call cost. Everything the original does still works. The idea, design and original code are credited
+> below and are unchanged; see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for exactly what this fork changes.
+>
+> **Start here:** [docs/LOCAL-MODE.md](docs/LOCAL-MODE.md) (setup in five steps).
+> More: [how it works](docs/ARCHITECTURE.md) · [choosing a model and tuning](docs/TUNING.md) ·
+> [troubleshooting](docs/TROUBLESHOOTING.md) · [roadmap](docs/ROADMAP.md) ·
+> [staying in sync with the original](docs/UPSTREAM.md)
+
 
 A teleprompter of talking points, not a script. You talk in your own words
 and in any order, and each point is checked off once you have covered it.
 
-**Try it: https://finetuningsingh.github.io/intelliprompter/** (paste an
+**The original's hosted page:** https://finetuningsingh.github.io/intelliprompter/ (paste an
 [OpenRouter key](https://openrouter.ai/keys); for a TypeSafe key, run it
-locally, see below).
+locally, see below). It has no local mode: a page on the web cannot reach a model on your own network, so to use
+a local model, run this fork with `npm start`.
 
 The idea and design come from Allie at [TypeSafe](https://typesafe.ai). She
 built the original IntelliPrompter so she would not forget anything in the
@@ -61,6 +74,39 @@ live transcription; this page uses the browser's built-in speech recognition
 (Chrome, Edge or Safari). "Start without microphone" lets you type or paste
 what you say instead.
 
+## Local mode (this fork)
+
+Instead of a key, point the page at a model server you run:
+
+```sh
+git clone https://github.com/OpenArmorDesign/intelliprompter-local.git
+cd intelliprompter-local
+npm start                # http://127.0.0.1:8787/
+```
+
+Open the page, enter the **server address** (for example `192.168.1.50:11434`) and the **model name**, press
+**Test connection**, then **Use this server**. Or set `LOCAL_URL` and `LOCAL_MODEL` in `.env` and the page starts
+in local mode. The server must offer the System One API (`POST /v1/systemone`) with a **decision model** loaded,
+not a chat model. Works with Ollama 0.35+, recent llama.cpp `llama-server` builds and LM Studio. Details,
+network setup and privacy notes: [docs/LOCAL-MODE.md](docs/LOCAL-MODE.md).
+
+| Setting | Page field | `.env` | `replay.js` |
+| --- | --- | --- | --- |
+| Server address | Server address | `LOCAL_URL` | `--local=` |
+| Model name | Model | `LOCAL_MODEL` | `--model=` |
+| Server API key (only if your server needs one) | not on the page | `LOCAL_API_KEY` | uses `LOCAL_API_KEY` |
+
+Things to know:
+
+- **Speech-to-text is not local yet.** The page still uses the browser's built-in speech recognition, which sends
+  audio to the browser vendor (Chrome sends it to Google), and which Firefox does not offer. Typing or pasting
+  ("Start without microphone") keeps everything on your network. Local speech-to-text is the first item on the
+  [roadmap](docs/ROADMAP.md).
+- **Status.** The automated tests (`npm test`) run against a mock server that follows the System One format.
+  Reports from real servers and models are welcome: please include the response body if something does not parse.
+- **Tune it.** Models score a little differently from Jev. [docs/TUNING.md](docs/TUNING.md) shows how to compare
+  models and set the threshold with `replay.js`.
+
 ## Keys: OpenRouter or TypeSafe
 
 Jev is available two ways, with the same questions and answers:
@@ -108,9 +154,9 @@ speech recognition sends your microphone audio to Google.
 Requires Node 18+. There is nothing to install.
 
 ```sh
-git clone https://github.com/finetuningsingh/intelliprompter.git
-cd intelliprompter
-cp .env.example .env    # optional: add TYPESAFE_API_KEY and/or OPENROUTER_API_KEY
+git clone https://github.com/OpenArmorDesign/intelliprompter-local.git
+cd intelliprompter-local
+cp .env.example .env    # optional: add TYPESAFE_API_KEY and/or OPENROUTER_API_KEY, or LOCAL_URL and LOCAL_MODEL
 npm start               # http://127.0.0.1:8787/
 ```
 
@@ -126,8 +172,20 @@ node replay.js --transcript=talk.txt --points=points.txt
 ```
 
 This feeds a transcript to Jev 15 words at a time, as live speech would
-arrive, and prints when each point is checked off. It uses `TYPESAFE_API_KEY`
-if it is set, and `OPENROUTER_API_KEY` otherwise.
+arrive, and prints when each point is checked off. It uses a local model if
+`--local` or `LOCAL_URL` is given, otherwise `TYPESAFE_API_KEY` if it is set, and
+`OPENROUTER_API_KEY` otherwise.
+
+```sh
+node replay.js --local=192.168.1.50:11434 --model=your-decision-model
+```
+
+### Tests
+
+```sh
+npm test            # runs against a mock model server; needs no GPU, key or network
+npm run mock        # starts that mock server by itself, to try the page without a real model
+```
 
 ## Results (2026-09-19, OpenRouter, `typesafe/jev-1.13`, threshold 1.5)
 
@@ -150,6 +208,10 @@ recorded talk (1,581 words, 7 points), all 6 points covered were checked off,
 and the point never mentioned peaked at 0.23. That run took 106 calls
 averaging 252 ms, for $0.0074 in total.
 
-## License
+## Credits and license
 
-[MIT](LICENSE)
+- The idea and design of IntelliPrompter are Allie's at [TypeSafe](https://typesafe.ai).
+- The original code is [finetuningsingh/intelliprompter](https://github.com/finetuningsingh/intelliprompter).
+- Local mode was added in this fork, [OpenArmorDesign/intelliprompter-local](https://github.com/OpenArmorDesign/intelliprompter-local).
+
+[MIT](LICENSE), unchanged from the original.
