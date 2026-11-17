@@ -114,8 +114,9 @@ Things to know:
   the setup screen you can instead enter the address and port of your own speech server, such as Parakeet or a
   Whisper server (`STT_URL` in `.env`). Typing or pasting ("Start without microphone") also keeps everything on your
   network. See [docs/SPEECH-TO-TEXT.md](docs/SPEECH-TO-TEXT.md).
-- **Status.** The automated tests (`npm test`) run against a mock server that follows the System One format.
-  Reports from real servers and models are welcome: please include the response body if something does not parse.
+- **Status.** The automated tests (`npm test`) run against mock servers. By hand it has been used with Liquid AI's
+  `d1:3b` on Ollama 0.40.16 (an RTX 3070 Ti, about 150 ms per request once loaded) and a Parakeet speech server.
+  Reports from other servers and models are welcome: please include the response body if something does not parse.
 - **Tune it.** Models score a little differently from Jev. [docs/TUNING.md](docs/TUNING.md) shows how to compare
   models and set the threshold with `replay.js`.
 

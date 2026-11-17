@@ -24,9 +24,14 @@ Many servers implement it: faster-whisper-server and similar Whisper wrappers, w
 and most Parakeet containers that advertise "OpenAI compatible". If yours uses a different path, type the full
 URL (for example `http://box:5092/transcribe`) and the page keeps it as typed.
 
-**Honest status.** This was tested against a mock server that follows this API, in automated tests and in a real
-browser with a fake microphone. It has not yet been run against a real Parakeet or Whisper server. If your
-server answers with something the page cannot read, the error message shows what came back. Please report it.
+**Status.** The automated tests and a headless-browser test use a mock server that follows this API. It has also been
+used by hand with a real Parakeet server (the `parakeet-tdt-0.6b-v3` model in a CPU Docker container), through a
+laptop microphone over wifi, where it transcribed well. It has not been tried with a Whisper server. If your server
+answers with something the page cannot read, the error message shows what came back. Please report it.
+
+**The model name may be required.** The page sends `whisper-1` when the Model field is empty, which many servers
+accept for anything. Some, including the Parakeet container above, refuse a name they do not serve and answer with
+`Unknown model 'whisper-1'. Available models: [...]` and a list. Copy one of the listed names into the Model field.
 
 ## Setup
 

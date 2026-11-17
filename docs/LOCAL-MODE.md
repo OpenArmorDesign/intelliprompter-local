@@ -115,6 +115,15 @@ microphone". Everything else works in Firefox.
   speech-to-text (a speech server of your own adds a pause detector and transcription time) and the half-second update interval (`TICK_MS` in `index.html`).
 - **Graphics memory.** A small decision model needs a few GB. If you share a graphics card with another model,
   unload the other model while you record.
+- **Check that the model is really on the GPU.** If answers take seconds, not tenths of a second, the model has
+  probably fallen back to the CPU. With Ollama, run `ollama ps` and look for `100% GPU` in the PROCESSOR column. In
+  one real case a second Ollama (in a Docker container started with `--gpus 1`, which hands out the first card, not
+  the one meant) held the port and ran the model on a full card, so it used the CPU, and the proper service could
+  not start because the port was taken. `sudo ss -ltnp | grep <port>` shows who owns a port, and
+  `journalctl -u <service>` shows a service that keeps restarting. Warm, d1 took about 150 ms on the GPU against
+  about 3.5 s on the CPU.
+- **A model that loads itself at boot.** The first request after a boot can take several seconds while the model
+  loads. A small script that sends one request when the service starts avoids that.
 
 ## Using more than one model
 

@@ -6,6 +6,8 @@ Find the message you see, then the likely cause.
 
 | Message | Cause and fix |
 | --- | --- |
+| Each request takes seconds (the stats line shows thousands of ms) | The model is probably running on the CPU, or being loaded again for each request. See "Check that the model is really on the GPU" in [LOCAL-MODE.md](LOCAL-MODE.md). |
+| `Speech server -> 400: Unknown model 'whisper-1'` | The speech server needs the exact model name. Copy one from the list in the message into the Model field. |
 | `Relay failed: fetch failed (ECONNREFUSED)` | Nothing is listening at the address you entered. Check the model server is running, the port is right, and, if it is on another machine, that it listens on the network (not only `localhost`) and the firewall allows the port. |
 | `Relay failed: fetch failed (ENOTFOUND)` or `(EAI_AGAIN)` | The host name does not resolve. Use the IP address, or fix the name. |
 | `Relay failed: ... (no answer within 120 s)` | The server accepted the connection but never answered. It may be overloaded or still loading the model. |
