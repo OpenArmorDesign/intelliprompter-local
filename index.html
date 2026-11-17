@@ -48,6 +48,9 @@
   .localbox .two { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px; }
   .localbox code { font-size: 13px; }
   .ok { color: var(--done); }
+  .speechbox { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
+  .speechbox > label { margin-bottom: 8px; }
+  .speechbox .two { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-top: 10px; }
   .keysafe { margin-top: 14px; padding: 12px 14px; border-radius: 10px; background: var(--bg); border: 1px solid var(--line); }
   .keysafe h2 { display: flex; align-items: center; gap: 6px; font-size: 15px; margin: 0 0 6px; }
   .keysafe h2 svg { fill: none; stroke: var(--done); stroke-width: 2.2; stroke-linecap: round; flex: none; }
@@ -178,6 +181,28 @@ Phones on silent, no flash photography
 Tip the performers, and bring cash
 The bar is open during intermission
 Introduce the first performer</textarea>
+    <div class="speechbox" id="speechBox">
+      <label>Speech to text</label>
+      <div class="row" style="margin-top:0">
+        <span class="check"><input type="radio" name="stt" id="sttBrowser" value="browser" checked><label for="sttBrowser" style="margin:0">Browser speech recognition (default)</label></span>
+        <span class="check"><input type="radio" name="stt" id="sttServer" value="server"><label for="sttServer" style="margin:0">My own speech server</label></span>
+      </div>
+      <div class="hidden" id="sttFields">
+        <div class="two">
+          <div><label for="sttUrl">Speech server address</label>
+            <input id="sttUrl" type="text" autocomplete="off" spellcheck="false" placeholder="192.168.1.50:8000"></div>
+          <div><label for="sttModel">Model (if it asks)</label>
+            <input id="sttModel" type="text" autocomplete="off" spellcheck="false" placeholder="whisper-1"></div>
+        </div>
+        <div class="row">
+          <button id="testStt">Test speech server</button>
+          <span class="note" id="sttStatus" style="margin:0"></span>
+        </div>
+        <p class="note">For a server that offers <code>POST /v1/audio/transcriptions</code>, such as Parakeet or Whisper
+          servers. Your voice goes only to that address, through the small local server. Works in Firefox too.
+          Details: <a href="https://github.com/OpenArmorDesign/intelliprompter-local/blob/main/docs/SPEECH-TO-TEXT.md">docs/SPEECH-TO-TEXT.md</a>.</p>
+      </div>
+    </div>
     <div class="row">
       <button class="primary" id="start">Start with microphone</button>
       <button id="startTyping">Start without microphone</button>
@@ -291,10 +316,12 @@ Introduce the first performer</textarea>
 
 <script type="module">
   import { scorePoints, parsePoints, makeJev, providerFor, systemOneUrl, PROVIDERS } from './prompter.js?v=4';
+  import { sttEndpoint, makeTranscriber, createSttSession, startMic, Resampler } from './stt.js?v=1';
 
   const TICK_MS = 500;
   const STORE = 'jev_api_key';
   const LOCAL_STORE = 'intelliprompter_local';   // {url, model} of the last local server
+  const STT_STORE = 'intelliprompter_stt';       // {mode, url, model}: browser or your own speech server
   const MODE_STORE = 'intelliprompter_mode';     // 'local' or 'key': what to start with next time
   const $ = (id) => document.getElementById(id);
   const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -304,6 +331,7 @@ Introduce the first performer</textarea>
   let recognizer = null, listening = false, typing = false;
   let calls = 0, cost = 0, costKnown = true, lastMs = 0;
   let usingServerKey = false, retryAt = 0, errorDelay = 0, mode = 'key';
+  let sttMode = 'browser', sttGen = 0, serverStt = null;
 
   // server.js answers this; on GitHub Pages it 404s, so there is no relay and TypeSafe keys can't be used.
   const config = await fetch('api/config').then((r) => (r.ok ? r.json() : {})).catch(() => ({}));
@@ -356,9 +384,60 @@ Introduce the first performer</textarea>
     } finally { $('testLocal').disabled = false; }
   };
   if (!config.relay) {
-    for (const id of ['localUrl', 'localModel', 'useLocal', 'testLocal']) $(id).disabled = true;
+    for (const id of ['localUrl', 'localModel', 'useLocal', 'testLocal', 'sttServer']) $(id).disabled = true;
     $('localHint').textContent = 'Local mode needs the small local server: clone the repository and run npm start. A page hosted on the web cannot reach a server on your own network.';
   }
+
+  // ---- speech to text: the browser's own, or a server you run (intelliprompter-local) ----
+  const canMic = () => sttMode === 'server' || !!Recognition;
+  function updateMicNote() {
+    $('micNote').textContent = canMic() ? '' : 'This browser has no built-in speech recognition (Chrome, Edge and Safari do). Choose "My own speech server" above, or use "Start without microphone" and type or paste what you say.';
+  }
+  function saveStt() {
+    try { localStorage.setItem(STT_STORE, JSON.stringify({ mode: sttMode, url: $('sttUrl').value.trim(), model: $('sttModel').value.trim() })); } catch {}
+  }
+  function setSttMode(m) {
+    sttMode = m;
+    $('sttBrowser').checked = m === 'browser'; $('sttServer').checked = m === 'server';
+    $('sttFields').classList.toggle('hidden', m !== 'server');
+    updateMicNote(); saveStt();
+  }
+  $('sttBrowser').onchange = () => setSttMode('browser');
+  $('sttServer').onchange = () => setSttMode('server');
+  $('sttUrl').onchange = $('sttModel').onchange = saveStt;
+  const micError = (e) => e?.name === 'NotAllowedError' ? 'Microphone access was blocked. Allow it in the address bar and press Resume mic.'
+    : e?.name === 'NotFoundError' ? 'No microphone was found.'
+    : !window.isSecureContext ? 'The microphone only works on localhost or HTTPS. Open http://127.0.0.1:8787/ instead.' : `Microphone error: ${e?.message ?? e}`;
+  function sttInputs() {
+    const url = $('sttUrl').value.trim(), model = $('sttModel').value.trim();
+    if (!sttEndpoint(url)) { $('sttStatus').className = 'note'; $('sttStatus').textContent = 'Enter the speech server address, like 192.168.1.50:8000.'; return null; }
+    return { url, model };
+  }
+  // Records 4 seconds from the microphone, sends it, and shows what the speech server heard.
+  $('testStt').onclick = async () => {
+    const v = sttInputs(); if (!v) return;
+    const out = $('sttStatus'); out.className = 'note';
+    $('testStt').disabled = true;
+    const chunks = [], rs = new Resampler();
+    let mic, stage = 'mic';
+    try {
+      out.textContent = 'Say something for 4 seconds…';
+      mic = await startMic((c, rate) => chunks.push(rs.process(c, rate)));
+      await new Promise((r) => setTimeout(r, 4000));
+      mic.stop(); mic = null;
+      const samples = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+      let o = 0; for (const c of chunks) { samples.set(c, o); o += c.length; }
+      out.textContent = 'Sending…'; stage = 'send';
+      const t0 = performance.now();
+      const text = await makeTranscriber({ url: v.url, model: v.model })(samples);
+      const ms = Math.round(performance.now() - t0);
+      if (text) { out.className = 'note ok'; out.textContent = `Heard: "${text}" (${ms} ms for 4 s of audio)`; }
+      else out.textContent = `The server answered in ${ms} ms but heard no words. Check the microphone and try again.`;
+    } catch (e) {
+      try { mic?.stop(); } catch {}
+      out.textContent = stage === 'mic' ? micError(e) : e.name === 'TimeoutError' ? 'The speech server did not answer within 60 s.' : e.message;
+    } finally { $('testStt').disabled = false; }
+  };
 
   // ---- key ----
   function useKey(key, provider) {
@@ -415,7 +494,15 @@ Introduce the first performer</textarea>
     }
   } catch {}
   try { const saved = localStorage.getItem('intelliprompter_points'); if (saved) $('pointsInput').value = saved; } catch {}
-  if (!Recognition) $('micNote').textContent = 'This browser has no built-in speech recognition (Chrome, Edge and Safari do). Use "Start without microphone" and type or paste what you say.';
+  // Speech: .env STT_URL (with the server's relay) or what you chose last time; otherwise the browser's own.
+  {
+    let saved = null;
+    try { saved = JSON.parse(localStorage.getItem(STT_STORE) || 'null'); } catch {}
+    $('sttUrl').value = saved?.url || config.stt?.url || '';
+    $('sttModel').value = saved?.model || config.stt?.model || '';
+    const wantServer = config.relay && (saved ? saved.mode === 'server' && saved.url : !!config.stt?.url);
+    setSttMode(wantServer ? 'server' : 'browser');
+  }
 
   // ---- stage ----
   const threshold = () => Number($('threshold').value);
@@ -534,7 +621,30 @@ Introduce the first performer</textarea>
     }
   }
 
+  // Speech through your own server: capture the microphone, find where you pause, send each stretch for transcription.
+  async function startServerStt() {
+    const gen = sttGen;   // a Reset starts a new generation, so late answers from the old one are dropped
+    const session = createSttSession({
+      transcribe: makeTranscriber({ url: $('sttUrl').value.trim(), model: $('sttModel').value.trim() }),
+      onPartial: (t) => { if (gen === sttGen) { interimText = t; renderTranscript(); } },
+      onFinal: (t) => { if (gen === sttGen) { finalText += (finalText ? ' ' : '') + t; interimText = ''; renderTranscript(); } },
+      onError: (e) => { if (gen === sttGen) { $('error').textContent = e.name === 'TimeoutError' ? 'The speech server did not answer within 60 s.' : e.message; $('error').classList.remove('hidden'); } },
+    });
+    const rs = new Resampler();
+    const mic = await startMic((c, rate) => session.push(rs.process(c, rate)));
+    return { stop() { mic.stop(); session.flush(); } };
+  }
+  const serverRecognizer = {
+    async start() {
+      try { serverStt = await startServerStt(); }
+      catch (e) { listening = false; $('mic').textContent = 'Resume mic'; $('error').textContent = micError(e); $('error').classList.remove('hidden'); update(); }
+    },
+    stop() { try { serverStt?.stop(); } catch {} serverStt = null; },
+    abort() { this.stop(); },
+  };
+
   function startRecognizer() {
+    if (sttMode === 'server') { recognizer = serverRecognizer; recognizer.start(); return; }
     recognizer = new Recognition();
     recognizer.continuous = true;
     recognizer.interimResults = true;
@@ -571,7 +681,8 @@ Introduce the first performer</textarea>
     finalText = interimText = sentText = '';
     retryAt = errorDelay = 0;
     $('error').classList.add('hidden');
-    typing = !withMic || !Recognition;
+    sttGen++;
+    typing = !withMic || !canMic();
     listening = !typing;
     $('transcript').contentEditable = typing ? 'plaintext-only' : 'false';
     $('transcript').dataset.placeholder = typing ? 'Type or paste what you say here.' : 'Your words appear here as you speak.';

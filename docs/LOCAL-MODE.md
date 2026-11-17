@@ -97,14 +97,14 @@ home network that is usually fine. Do not point it across the internet without H
 | --- | --- |
 | Your transcript (the last 6,000 characters, every half second while it changes) | Only to the model server address you entered. |
 | Your talking points | Same place, inside each question. |
-| Your microphone audio | **The browser's built-in speech recognition sends it to the browser vendor's service for transcription** (the original README notes that Chrome sends it to Google). Local mode does not change that yet. Local speech-to-text is the next planned step: see [ROADMAP.md](ROADMAP.md). Until then, "Start without microphone" (type or paste) keeps everything on your network. |
+| Your microphone audio | **By default, the browser's built-in speech recognition sends it to the browser vendor's service** (the original README notes that Chrome sends it to Google). Choose **My own speech server** under Speech to text and it goes only to the address you enter: see [SPEECH-TO-TEXT.md](SPEECH-TO-TEXT.md). "Start without microphone" (type or paste) sends no audio anywhere. |
 | Your settings | Saved in your browser's local storage, on your computer. |
 
 ## Which browser
 
-The built-in speech recognition that the page uses exists in Chrome, Edge and Safari. **Firefox does not offer it by
-default**, so in Firefox use "Start without microphone" until local speech-to-text is added. Everything else works in
-Firefox.
+The built-in speech recognition exists in Chrome, Edge and Safari. **Firefox does not offer it by default**, so in
+Firefox either choose **My own speech server** (see [SPEECH-TO-TEXT.md](SPEECH-TO-TEXT.md)) or use "Start without
+microphone". Everything else works in Firefox.
 
 ## Speed and memory
 
@@ -112,7 +112,7 @@ Firefox.
   **Test connection** before you start recording to load it. Your server's documentation says how to keep a model
   loaded longer (for Ollama, the keep-alive setting).
 - **The model itself is quick.** Decision models answer in one forward pass. The delay you notice is mostly the
-  speech-to-text and the half-second update interval (`TICK_MS` in `index.html`).
+  speech-to-text (a speech server of your own adds a pause detector and transcription time) and the half-second update interval (`TICK_MS` in `index.html`).
 - **Graphics memory.** A small decision model needs a few GB. If you share a graphics card with another model,
   unload the other model while you record.
 

@@ -17,7 +17,12 @@ Find the message you see, then the likely cause.
 | `The relay only accepts requests from its own page.` | You opened the page some other way (a file, another port, another host name). Open `http://127.0.0.1:8787/` after `npm start`. |
 | "Local mode needs the small local server" (greyed out boxes) | You are on a hosted copy of the page. Run `npm start` and use the address it prints. |
 | `Microphone access was blocked` | Allow the microphone in the address bar. It only works on `localhost` or HTTPS, so use `http://127.0.0.1:8787/`, not your computer's network address. |
-| "This browser has no built-in speech recognition" | Use Chrome, Edge or Safari, or press "Start without microphone" and type or paste. Firefox does not offer it by default. |
+| "This browser has no built-in speech recognition" | Use Chrome, Edge or Safari, choose **My own speech server** (see [SPEECH-TO-TEXT.md](SPEECH-TO-TEXT.md)), or press "Start without microphone" and type or paste. |
+| `Speech server -> 404 ...` | The model name is wrong, or the server does not have that route. Check the model name, and that the server offers `POST /v1/audio/transcriptions` (or enter the full URL of its route). |
+| `Speech server -> 401 ...` | The speech server wants an API key. Put it in `.env` as `STT_API_KEY`, restart `npm start`, reload. |
+| `Relay failed ... ECONNREFUSED` on a speech test | Nothing is listening at that address and port, or a firewall blocks it. Check the address from the computer running `npm start`. |
+| The transcript never fills, but the test works | The pause detector may not hear a pause, or the microphone level is very low. Speech still arrives every 20 seconds at most. Try a quieter room or a closer microphone. |
+| Words appear, then change | That is expected: partial guesses are replaced by the final text when you pause. |
 
 ## Behavior
 

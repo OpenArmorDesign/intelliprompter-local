@@ -95,13 +95,17 @@ network setup and privacy notes: [docs/LOCAL-MODE.md](docs/LOCAL-MODE.md).
 | Server address | Server address | `LOCAL_URL` | `--local=` |
 | Model name | Model | `LOCAL_MODEL` | `--model=` |
 | Server API key (only if your server needs one) | not on the page | `LOCAL_API_KEY` | uses `LOCAL_API_KEY` |
+| Speech server address | Speech server address | `STT_URL` | not used |
+| Speech server model | Model | `STT_MODEL` | not used |
+| Speech server API key (only if needed) | not on the page | `STT_API_KEY` | not used |
 
 Things to know:
 
-- **Speech-to-text is not local yet.** The page still uses the browser's built-in speech recognition, which sends
-  audio to the browser vendor (Chrome sends it to Google), and which Firefox does not offer. Typing or pasting
-  ("Start without microphone") keeps everything on your network. Local speech-to-text is the first item on the
-  [roadmap](docs/ROADMAP.md).
+- **Speech-to-text is your choice.** By default the page uses the browser's built-in speech recognition, as the
+  original does (it sends audio to the browser vendor, and Firefox does not offer it). Under **Speech to text** on
+  the setup screen you can instead enter the address and port of your own speech server, such as Parakeet or a
+  Whisper server (`STT_URL` in `.env`). Typing or pasting ("Start without microphone") also keeps everything on your
+  network. See [docs/SPEECH-TO-TEXT.md](docs/SPEECH-TO-TEXT.md).
 - **Status.** The automated tests (`npm test`) run against a mock server that follows the System One format.
   Reports from real servers and models are welcome: please include the response body if something does not parse.
 - **Tune it.** Models score a little differently from Jev. [docs/TUNING.md](docs/TUNING.md) shows how to compare

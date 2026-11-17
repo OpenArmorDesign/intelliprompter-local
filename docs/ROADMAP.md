@@ -1,35 +1,18 @@
 # Roadmap and ideas
 
-Nothing on this page is implemented yet. It records what would make local mode complete, and the thinking behind
-it, so the next step is easy to pick up.
+Local speech-to-text is now implemented (see [SPEECH-TO-TEXT.md](SPEECH-TO-TEXT.md)). This page records what
+would improve it and the rest of local mode, so the next step is easy to pick up.
 
-## 1. Local speech-to-text (the main missing piece)
+## 1. Speech-to-text, next steps
 
-**Why.** Local mode keeps your transcript on your network, but the microphone audio still goes to the browser
-vendor's speech service, because the page uses the browser's built-in speech recognition. That built-in
-recognition also does not exist in Firefox, and it needs a secure page. A speech-to-text server of your own fixes
-all three.
-
-**How it would work, at a high level**
-
-1. The page captures microphone audio (`getUserMedia`, which works on `http://127.0.0.1`) and cuts it into small
-   chunks, a fraction of a second each, as 16 kHz mono audio. The audio is a continuous stream, not a whole
-   recording uploaded at the end.
-2. The chunks go to `server.js` (a new route, for example `/api/stt`), which forwards them to the speech-to-text
-   server over your network. Going through the relay again means no certificate and no CORS settings, and it
-   works in Firefox because the page only needs to capture audio.
-3. The speech-to-text server returns text as you talk: quick partial guesses while you are mid-sentence, then
-   settled text when you pause. The page feeds that into the same transcript the built-in recognition feeds today.
-4. Everything after that is unchanged: the transcript tail goes to the decision model, points get checked off.
-
-**Open questions**
-
-- Whether the speech server supports true streaming (a WebSocket, for example) or only takes whole clips. If only
-  clips, the page sends short overlapping windows every second or so and accepts a delay of one to two seconds.
-- Detecting pauses so text is finalized promptly.
-- Which servers to document first. The author plans to use NVIDIA Parakeet; Whisper-based servers are the other
-  obvious choice.
-- A **Test microphone** button, like the existing **Test connection**.
+- **Test against real servers.** The feature is tested against a mock that follows the OpenAI-style
+  `/v1/audio/transcriptions` API. Reports from Parakeet and Whisper servers are the most useful thing right now.
+- **True streaming.** If a speech server offers a WebSocket or streaming API, partial text could arrive sooner than
+  the current clip-every-1.2-seconds approach. The `createSttSession` function in `stt.js` is the seam to replace.
+- **A better pause detector.** The current one is loudness based and needs no model. A small voice-activity model
+  would cope better with noisy rooms.
+- **A microphone level meter** on the setup screen, to help set up a room.
+- **An OBS plugin or overlay** that shows the checklist on stream or on a second screen.
 
 ## 2. Smaller improvements
 

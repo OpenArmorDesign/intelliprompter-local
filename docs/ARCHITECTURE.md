@@ -95,11 +95,12 @@ the original code.
 | File | Change |
 | --- | --- |
 | `prompter.js` | New `local` provider. `makeJev` accepts a `model` (the local model name), and optional `timeoutMs` and `retries`. New helper `systemOneUrl()` that turns what you type into the full endpoint URL. A clearer message for a 404 or 400 from a local server. The questions, levels, scoring and parsing are unchanged. |
-| `server.js` | New `POST /api/local` route that forwards a request to the model server named in the `X-Local-Url` header (or `LOCAL_URL` in `.env`). `/api/config` also reports the `.env` defaults. The relay's error message includes why a connection failed. The TypeSafe relay is unchanged apart from sharing the same origin check. |
-| `index.html` | A box for server address and model, a Test connection button, remembered settings, a "Change server" button, and wording that says "local" where the original says "Jev". |
+| `server.js` | New `POST /api/stt` route that turns an `audio/wav` body into an OpenAI-style multipart request to the speech server named in `X-Stt-Url` (or `STT_URL`). New `POST /api/local` route that forwards a request to the model server named in the `X-Local-Url` header (or `LOCAL_URL` in `.env`). `/api/config` also reports the `.env` defaults. The relay's error message includes why a connection failed. The TypeSafe relay is unchanged apart from sharing the same origin check. |
+| `index.html` | A Speech to text panel (browser recognition or your own server, with a test button). A box for server address and model, a Test connection button, remembered settings, a "Change server" button, and wording that says "local" where the original says "Jev". |
 | `replay.js` | `--local=` and `--model=` (or `LOCAL_URL` and `LOCAL_MODEL`), median and slowest call time. |
+| `stt.js` (new) | Optional speech-to-text: microphone capture, resampling to 16 kHz, pause detection, partial and final clips, WAV encoding, and the call to the relay. Not loaded in any way that changes the default browser recognition. |
 | `.env.example`, `package.json` | New settings, `npm test` and `npm run mock`. |
-| `tools/mock-systemone.js`, `test/` | A mock System One server and the automated tests. |
+| `tools/mock-systemone.js`, `tools/mock-stt.js`, `test/` | A mock System One server, a mock speech server, and the automated tests. |
 | `docs/`, `README.md` | This documentation. |
 
 Unchanged on purpose: the license and copyright notice, the scoring prompt and levels, the check-off rule, the
@@ -113,9 +114,9 @@ named in `X-Local-Url`, so it is locked to its own page, the same way the origin
 - The request's `Host` must be `127.0.0.1:<port>` or `localhost:<port>`. This blocks DNS rebinding, where a
   hostile website points its own name at your computer.
 - If the request has an `Origin`, it must be the page itself.
-- The body must be `application/json`. A cross-site page cannot send that without a CORS preflight, and this
+- The body must be `application/json` (`audio/wav` for `/api/stt`). A cross-site page cannot send that without a CORS preflight, and this
   server never approves a preflight.
-- Only `http` and `https` addresses are accepted, bodies over 1 MB are refused, and an upstream call gives up
+- Only `http` and `https` addresses are accepted, bodies over 1 MB (8 MB for audio) are refused, and an upstream call gives up
   after 120 seconds.
 - `LOCAL_API_KEY`, if you use one, stays in `.env` on the relay. The page never sees it.
 
